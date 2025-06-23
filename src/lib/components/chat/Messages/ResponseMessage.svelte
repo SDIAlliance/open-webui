@@ -52,6 +52,8 @@
 	import { fade } from 'svelte/transition';
 	import { flyAndScale } from '$lib/utils/transitions';
 
+	import FootprintIcon from '$lib/components/icons/FootprintIcon.svelte';
+
 	interface MessageType {
 		id: string;
 		model: string;
@@ -101,6 +103,13 @@
 			usage?: unknown;
 		};
 		annotation?: { type: string; rating: number };
+		footprint?: {
+			energyUse: string;
+			waterUse: string;
+			resourceUse: string;
+			co2Operational: string;
+			co2Embedded: string;
+		};
 	}
 
 	export let chatId = '';
@@ -1440,6 +1449,37 @@
 											</Tooltip>
 										{/each}
 									{/if}
+
+									<!-- Environmental Footprint Button -->
+									<Tooltip
+										content={`
+											<div class="font-semibold mb-2">Environmental Footprint</div>
+											<div class="mb-2">Usage for this query:</div>
+											<div class="space-y-1">
+												<div>Energy Use: ${message?.footprint?.energyUse ?? '...'} kWh <a href="https://sdia.io" class="text-blue-500 hover:underline">ⓘ</a></div>
+												<div>Water Use: ${message?.footprint?.waterUse ?? '...'} m³ <a href="https://sdia.io" class="text-blue-500 hover:underline">ⓘ</a></div>
+												<div>Resource Use: ${message?.footprint?.resourceUse ?? '...'} kg SB-eq <a href="https://sdia.io" class="text-blue-500 hover:underline">ⓘ</a></div>
+												<div>Operational CO2: ${message?.footprint?.co2Operational ?? '...'} kg CO2-eq <a href="https://sdia.io" class="text-blue-500 hover:underline">ⓘ</a></div>
+												<div>Embedded CO2: ${message?.footprint?.co2Embedded ?? '...'} kg CO2-eq <a href="https://sdia.io" class="text-blue-500 hover:underline">ⓘ</a></div>
+											</div>
+											<div class="mt-2 border-t pt-2">
+												<a href="https://sdia.io" class="text-blue-500 hover:underline">How is this calculated?</a>
+											</div>
+										`}
+										placement="bottom"
+									>
+										<button
+											type="button"
+											aria-label="Environmental Footprint"
+											class="{isLastMessage
+												? 'visible'
+												: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg dark:hover:text-white hover:text-black transition"
+										>
+											<!-- Status color: 0=transparent, 1=#FF5500, 2=#FFCC00, 3=#AEFF00 -->
+											<!-- For now, use status 3 (#AEFF00) -->
+											<FootprintIcon className="size-4" circleColor="#AEFF00" />
+										</button>
+									</Tooltip>
 								{/if}
 							{/if}
 						{/if}
