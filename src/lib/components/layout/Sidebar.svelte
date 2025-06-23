@@ -39,7 +39,8 @@
 		getChatPinnedStatusById,
 		getChatById,
 		updateChatFolderIdById,
-		importChat
+		importChat,
+		getAllChats
 	} from '$lib/apis/chats';
 	import { createNewFolder, getFolders, updateFolderParentIdById } from '$lib/apis/folders';
 	import { WEBUI_BASE_URL } from '$lib/constants';
@@ -61,6 +62,8 @@
 	import Home from '../icons/Home.svelte';
 	import MagnifyingGlass from '../icons/MagnifyingGlass.svelte';
 	import SearchModal from './SearchModal.svelte';
+	import EnvironmentalFootprintButton from '$lib/components/common/EnvironmentalFootprintButton.svelte';
+	import { get } from 'svelte/store';
 
 	const BREAKPOINT = 768;
 
@@ -79,6 +82,8 @@
 
 	let folders = {};
 	let newFolderId = null;
+
+	let userChats = [];
 
 	const initFolders = async () => {
 		const folderList = await getFolders(localStorage.token).catch((error) => {
@@ -374,6 +379,10 @@
 		dropZone?.addEventListener('dragover', onDragOver);
 		dropZone?.addEventListener('drop', onDrop);
 		dropZone?.addEventListener('dragleave', onDragLeave);
+
+		if ($user && localStorage.token) {
+			userChats = await getAllChats(localStorage.token);
+		}
 	});
 
 	onDestroy(() => {
@@ -392,6 +401,45 @@
 		dropZone?.removeEventListener('drop', onDrop);
 		dropZone?.removeEventListener('dragleave', onDragLeave);
 	});
+
+	// Helper to sum footprint data for all messages in all chats for the user
+	function sumUserFootprint(chats) {
+		if (!Array.isArray(chats)) return null;
+		const sum = {
+			energyUse: 0,
+			waterUse: 0,
+			resourceUse: 0,
+			co2Operational: 0,
+			co2Embedded: 0
+		};
+		let found = false;
+		for (const chat of chats) {
+			// Support both chat.messages and chat.chat.messages
+			const messages = Array.isArray(chat.messages)
+				? chat.messages
+				: chat.chat && Array.isArray(chat.chat.messages)
+					? chat.chat.messages
+					: [];
+			for (const msg of messages) {
+				if (msg.footprint) {
+					found = true;
+					sum.energyUse += parseFloat(msg.footprint.energyUse || 0);
+					sum.waterUse += parseFloat(msg.footprint.waterUse || 0);
+					sum.resourceUse += parseFloat(msg.footprint.resourceUse || 0);
+					sum.co2Operational += parseFloat(msg.footprint.co2Operational || 0);
+					sum.co2Embedded += parseFloat(msg.footprint.co2Embedded || 0);
+				}
+			}
+		}
+		if (!found) return null;
+		return {
+			energyUse: sum.energyUse.toFixed(3),
+			waterUse: sum.waterUse.toFixed(3),
+			resourceUse: sum.resourceUse.toFixed(3),
+			co2Operational: sum.co2Operational.toFixed(3),
+			co2Embedded: sum.co2Embedded.toFixed(3)
+		};
+	}
 </script>
 
 <ArchivedChatsModal
@@ -962,21 +1010,31 @@
 							}
 						}}
 					>
-						<button
-							class=" flex items-center rounded-xl py-2.5 px-2.5 w-full hover:bg-gray-100 dark:hover:bg-gray-900 transition"
-							on:click={() => {
-								showDropdown = !showDropdown;
-							}}
-						>
-							<div class=" self-center mr-3">
-								<img
-									src={$user?.profile_image_url}
-									class=" max-w-[30px] object-cover rounded-full"
-									alt="User profile"
-								/>
-							</div>
-							<div class=" self-center font-medium">{$user?.name}</div>
-						</button>
+						<div class="flex items-center w-full">
+							<button
+								class="flex items-center rounded-xl py-2.5 px-2.5 hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+								on:click={() => {
+									showDropdown = !showDropdown;
+								}}
+								style="flex: 1 1 0%"
+							>
+								<div class="self-center mr-3">
+									<img
+										src={$user?.profile_image_url}
+										class="max-w-[30px] object-cover rounded-full"
+										alt="User profile"
+									/>
+								</div>
+								<div class="self-center font-medium">{$user?.name}</div>
+							</button>
+							<EnvironmentalFootprintButton
+								data={sumUserFootprint(userChats.length > 0 ? userChats : $chats)}
+								header="Cumulative usage for this user"
+								subheader="Total for all threads:"
+								iconClass="size-4"
+								iconCircleColor="transparent"
+							/>
+						</div>
 					</UserMenu>
 				{/if}
 			</div>
