@@ -12,7 +12,7 @@
 	const dispatch = createEventDispatcher();
 
 	import { createNewFeedback, getFeedbackById, updateFeedbackById } from '$lib/apis/evaluations';
-	import { getChatById } from '$lib/apis/chats';
+	import { getChatById, fetchFootprint, type FootprintData } from '$lib/apis/chats';
 	import { generateTags } from '$lib/apis';
 
 	import { config, models, settings, temporaryChatEnabled, TTSWorker, user } from '$lib/stores';
@@ -119,7 +119,12 @@
 	let message: MessageType = JSON.parse(JSON.stringify(history.messages[messageId]));
 	$: if (history.messages) {
 		if (JSON.stringify(message) !== JSON.stringify(history.messages[messageId])) {
-			message = JSON.parse(JSON.stringify(history.messages[messageId]));
+			const newMessage = JSON.parse(JSON.stringify(history.messages[messageId]));
+			// Preserve footprint data when updating message
+			if (message.footprint) {
+				newMessage.footprint = message.footprint;
+			}
+			message = newMessage;
 		}
 	}
 
@@ -165,6 +170,49 @@
 	let generatingImage = false;
 
 	let showRateComment = false;
+
+	let footprintData: FootprintData | null = null;
+	let isFetchingFootprint = false;
+
+	const fetchFootprintData = async () => {
+		if (!message.timestamp || isFetchingFootprint) return;
+
+		isFetchingFootprint = true;
+
+		try {
+			// Convert timestamp from seconds to milliseconds if needed
+			const startTime = message.timestamp * 1000;
+
+			const data = await fetchFootprint({
+				start_time: startTime,
+				end_time: Date.now(),
+				host_id: 'mock-host-1', // Mock host ID for now
+				model_id: message.model || 'unknown',
+				user_id: $user?.id || 'anonymous'
+			});
+
+			// Update both the local state and the message
+			footprintData = data;
+			message.footprint = data;
+
+			// Save the updated message to history
+			saveMessage(message.id, message);
+		} catch (error) {
+			console.error('Failed to fetch footprint data:', error);
+		} finally {
+			isFetchingFootprint = false;
+		}
+	};
+
+	// Fetch footprint data when message is done streaming and we don't have data yet
+	$: if (message.done && !message.footprint && !isFetchingFootprint) {
+		fetchFootprintData();
+	}
+
+	// Update the tooltip when footprint data changes
+	$: if (footprintData) {
+		message.footprint = footprintData;
+	}
 
 	const copyToClipboard = async (text) => {
 		text = removeAllDetails(text);

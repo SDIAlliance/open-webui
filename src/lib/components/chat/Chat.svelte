@@ -1981,6 +1981,18 @@
 			}
 		}
 	};
+
+	const createNewMessage = (content: string, role: Role = 'user') => {
+		const message = {
+			id: generateId(),
+			content,
+			role,
+			done: true,
+			timestamp: Date.now()
+			// ... other existing fields ...
+		};
+		// ... rest of the function ...
+	};
 </script>
 
 <svelte:head>

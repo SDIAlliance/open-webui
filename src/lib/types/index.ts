@@ -1,3 +1,5 @@
+import type { FootprintData } from '$lib/apis/chats';
+
 export type Banner = {
 	id: string;
 	type: string;
@@ -12,4 +14,9 @@ export enum TTS_RESPONSE_SPLIT {
 	PUNCTUATION = 'punctuation',
 	PARAGRAPHS = 'paragraphs',
 	NONE = 'none'
+}
+
+export interface Message {
+	timestamp?: number;
+	footprint?: FootprintData;
 }

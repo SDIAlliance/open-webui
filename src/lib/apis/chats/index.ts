@@ -1090,3 +1090,34 @@ export const archiveAllChats = async (token: string) => {
 
 	return res;
 };
+
+export interface FootprintData {
+	energyUse: string;
+	waterUse: string;
+	resourceUse: string;
+	co2Operational: string;
+	co2Embedded: string;
+}
+
+export interface FootprintRequest {
+	start_time: number;
+	end_time: number;
+	host_id: string;
+	model_id: string;
+	user_id: string;
+}
+
+// Mock function - will be replaced with real API call later
+export const fetchFootprint = async (params: FootprintRequest): Promise<FootprintData> => {
+	// Simulate API delay
+	await new Promise((resolve) => setTimeout(resolve, 500));
+
+	// Mock response with realistic-looking values
+	return {
+		energyUse: (Math.random() * 0.5).toFixed(3),
+		waterUse: (Math.random() * 0.1).toFixed(3),
+		resourceUse: (Math.random() * 0.05).toFixed(3),
+		co2Operational: (Math.random() * 0.2).toFixed(3),
+		co2Embedded: (Math.random() * 0.3).toFixed(3)
+	};
+};
