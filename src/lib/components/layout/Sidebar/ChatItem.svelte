@@ -40,6 +40,7 @@
 	import Document from '$lib/components/icons/Document.svelte';
 	import Sparkles from '$lib/components/icons/Sparkles.svelte';
 	import { generateTitle } from '$lib/apis';
+	import EnvironmentalFootprintButton from '$lib/components/common/EnvironmentalFootprintButton.svelte';
 
 	export let className = '';
 
@@ -263,6 +264,37 @@
 
 		generating = false;
 	};
+
+	// Helper to sum footprint data for all messages in the chat
+	function sumFootprintData(chat) {
+		if (!chat || !chat.chat || !Array.isArray(chat.chat.messages)) return null;
+		const sum = {
+			energyUse: 0,
+			waterUse: 0,
+			resourceUse: 0,
+			co2Operational: 0,
+			co2Embedded: 0
+		};
+		let found = false;
+		for (const msg of chat.chat.messages) {
+			if (msg.footprint) {
+				found = true;
+				sum.energyUse += parseFloat(msg.footprint.energyUse || 0);
+				sum.waterUse += parseFloat(msg.footprint.waterUse || 0);
+				sum.resourceUse += parseFloat(msg.footprint.resourceUse || 0);
+				sum.co2Operational += parseFloat(msg.footprint.co2Operational || 0);
+				sum.co2Embedded += parseFloat(msg.footprint.co2Embedded || 0);
+			}
+		}
+		if (!found) return null;
+		return {
+			energyUse: sum.energyUse.toFixed(3),
+			waterUse: sum.waterUse.toFixed(3),
+			resourceUse: sum.resourceUse.toFixed(3),
+			co2Operational: sum.co2Operational.toFixed(3),
+			co2Embedded: sum.co2Embedded.toFixed(3)
+		};
+	}
 </script>
 
 <ShareChatModal bind:show={showShareChatModal} chatId={id} />
@@ -393,7 +425,7 @@
 				: 'invisible group-hover:visible from-gray-100 dark:from-gray-950'}
             absolute {className === 'pr-2'
 			? 'right-[8px]'
-			: 'right-1'} top-[4px] py-1 pr-0.5 mr-1.5 pl-5 bg-linear-to-l from-80%
+			: 'right-1'} items-center top-[4px] py-0 pr-0.5 mr-1.5 pl-5 bg-linear-to-l from-80%
 
               to-transparent"
 		on:mouseenter={(e) => {
@@ -450,7 +482,16 @@
 				</Tooltip>
 			</div>
 		{:else}
-			<div class="flex self-center z-10 items-end">
+			<div class="flex self-center z-10 items-center gap-1">
+				<div class="flex items-center">
+					<EnvironmentalFootprintButton
+						data={sumFootprintData(chat)}
+						header="Cumulative usage for this thread"
+						subheader="Total for all messages:"
+						iconClass="size-4"
+						iconCircleColor="transparent"
+					/>
+				</div>
 				<ChatMenu
 					chatId={id}
 					cloneChatHandler={() => {

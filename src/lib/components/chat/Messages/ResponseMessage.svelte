@@ -53,6 +53,7 @@
 	import { flyAndScale } from '$lib/utils/transitions';
 
 	import FootprintIcon from '$lib/components/icons/FootprintIcon.svelte';
+	import EnvironmentalFootprintButton from '$lib/components/common/EnvironmentalFootprintButton.svelte';
 
 	interface MessageType {
 		id: string;
@@ -1499,36 +1500,14 @@
 									{/if}
 
 									<!-- Environmental Footprint Button -->
-									<Tooltip
-										content={`
-											<div class="font-semibold mb-2">Environmental Footprint</div>
-											<div class="mb-2">Usage for this query:</div>
-											<div class="space-y-1">
-												<div>Energy Use: ${message?.footprint?.energyUse ?? '...'} kWh</div>
-												<div>Water Use: ${message?.footprint?.waterUse ?? '...'} m³</div>
-												<div>Resource Use: ${message?.footprint?.resourceUse ?? '...'} kg SB-eq</div>
-												<div>Operational CO2: ${message?.footprint?.co2Operational ?? '...'} kg CO2-eq</div>
-												<div>Embedded CO2: ${message?.footprint?.co2Embedded ?? '...'} kg CO2-eq</div>
-											</div>
-											<div class="mt-2 border-t pt-2 text-sm text-gray-500">
-												Click the icon to see how this is calculated
-											</div>
-										`}
-										placement="bottom"
-									>
-										<button
-											type="button"
-											aria-label="Environmental Footprint"
-											class="{isLastMessage
-												? 'visible'
-												: 'invisible group-hover:visible'} p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg transition text-gray-500 dark:text-gray-400"
-											on:click={() => {
-												window.open('https://sdia.io', '_blank');
-											}}
-										>
-											<FootprintIcon className="size-4" circleColor="transparent" />
-										</button>
-									</Tooltip>
+									<EnvironmentalFootprintButton
+										data={message?.footprint}
+										header="Environmental Footprint"
+										subheader="Usage for this query:"
+										loading={isFetchingFootprint}
+										iconClass="size-4"
+										iconCircleColor="transparent"
+									/>
 								{/if}
 							{/if}
 						{/if}
