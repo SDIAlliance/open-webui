@@ -1105,12 +1105,18 @@ export interface FootprintRequest {
 	host_id: string;
 	model_id: string;
 	user_id: string;
+	usage?: unknown; // Optional usage info for environmental footprint
 }
 
 // Mock function - will be replaced with real API call later
 export const fetchFootprint = async (params: FootprintRequest): Promise<FootprintData> => {
 	// Simulate API delay
 	await new Promise((resolve) => setTimeout(resolve, 500));
+
+	// Log usage info if present (for dev/debug)
+	if (params.usage) {
+		console.log('Footprint API received usage info:', params.usage);
+	}
 
 	// Mock response with realistic-looking values
 	return {

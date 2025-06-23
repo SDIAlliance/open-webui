@@ -111,6 +111,7 @@
 			co2Operational: string;
 			co2Embedded: string;
 		};
+		usage?: unknown;
 	}
 
 	export let chatId = '';
@@ -184,12 +185,16 @@
 			// Convert timestamp from seconds to milliseconds if needed
 			const startTime = message.timestamp * 1000;
 
+			// Gather usage info if present
+			const usage = message.usage || message.info?.usage;
+
 			const data = await fetchFootprint({
 				start_time: startTime,
 				end_time: Date.now(),
 				host_id: 'mock-host-1', // Mock host ID for now
 				model_id: message.model || 'unknown',
-				user_id: $user?.id || 'anonymous'
+				user_id: $user?.id || 'anonymous',
+				...(usage ? { usage } : {})
 			});
 
 			// Update both the local state and the message
