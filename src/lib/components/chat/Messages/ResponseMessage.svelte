@@ -175,11 +175,16 @@
 
 	let footprintData: FootprintData | null = null;
 	let isFetchingFootprint = false;
+	let footprintRetryCount = 0;
+	const MAX_FOOTPRINT_RETRIES = 3;
 
 	const fetchFootprintData = async () => {
-		if (!message.timestamp || isFetchingFootprint) return;
+		if (!message.timestamp || isFetchingFootprint || footprintRetryCount >= MAX_FOOTPRINT_RETRIES) {
+			return;
+		}
 
 		isFetchingFootprint = true;
+		footprintRetryCount++;
 
 		try {
 			// Convert timestamp from seconds to milliseconds if needed
@@ -203,15 +208,22 @@
 
 			// Save the updated message to history
 			saveMessage(message.id, message);
+
+			// Reset retry count on success
+			footprintRetryCount = 0;
 		} catch (error) {
-			console.error('Failed to fetch footprint data:', error);
+			console.error(`Failed to fetch footprint data (attempt ${footprintRetryCount}/${MAX_FOOTPRINT_RETRIES}):`, error);
+
+			if (footprintRetryCount >= MAX_FOOTPRINT_RETRIES) {
+				console.warn(`Max retries (${MAX_FOOTPRINT_RETRIES}) reached for footprint data. Giving up.`);
+			}
 		} finally {
 			isFetchingFootprint = false;
 		}
 	};
 
 	// Fetch footprint data when message is done streaming and we don't have data yet
-	$: if (message.done && !message.footprint && !isFetchingFootprint) {
+	$: if (message.done && !message.footprint && !isFetchingFootprint && footprintRetryCount < MAX_FOOTPRINT_RETRIES) {
 		fetchFootprintData();
 	}
 
