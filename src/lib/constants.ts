@@ -1,4 +1,5 @@
 import { browser, dev } from '$app/environment';
+import { PUBLIC_IMPACT_ENDPOINT, PUBLIC_IMPACT_API_KEY } from '$env/static/public';
 // import { version } from '../../package.json';
 
 export const APP_NAME = 'Open WebUI';
@@ -12,6 +13,8 @@ export const OPENAI_API_BASE_URL = `${WEBUI_BASE_URL}/openai`;
 export const AUDIO_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/audio`;
 export const IMAGES_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/images`;
 export const RETRIEVAL_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/retrieval`;
+export const IMPACT_ENDPOINT = PUBLIC_IMPACT_ENDPOINT || '';
+export const IMPACT_API_KEY = PUBLIC_IMPACT_API_KEY || '';
 
 export const WEBUI_VERSION = APP_VERSION;
 export const WEBUI_BUILD_HASH = APP_BUILD_HASH;

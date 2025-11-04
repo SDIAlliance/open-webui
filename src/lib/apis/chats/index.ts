@@ -1108,22 +1108,90 @@ export interface FootprintRequest {
 	usage?: unknown; // Optional usage info for environmental footprint
 }
 
-// Mock function - will be replaced with real API call later
-export const fetchFootprint = async (params: FootprintRequest): Promise<FootprintData> => {
-	// Simulate API delay
-	await new Promise((resolve) => setTimeout(resolve, 500));
-
-	// Log usage info if present (for dev/debug)
-	if (params.usage) {
-		console.log('Footprint API received usage info:', params.usage);
-	}
-
-	// Mock response with realistic-looking values
-	return {
-		energyUse: (Math.random() * 0.5).toFixed(3),
-		waterUse: (Math.random() * 0.1).toFixed(3),
-		resourceUse: (Math.random() * 0.05).toFixed(3),
-		co2Operational: (Math.random() * 0.2).toFixed(3),
-		co2Embedded: (Math.random() * 0.3).toFixed(3)
+interface ImpactAPIResponse {
+	averageCpuUtilization: number;
+	averageServerPowerForPod: number;
+	totalEnergyConsumptionForPod: number;
+	gridRenewablePercentageAverage: number;
+	totalRenewableEnergyConsumption: number;
+	totalNonRenewableEnergyConsumption: number;
+	totalOperationalCo2Emissions: number;
+	facilityEmbodiedImpactsAttributable: {
+		climate_change?: number;
+		[key: string]: number | undefined;
 	};
+	serverEmbodiedImpactsAttributable: {
+		climate_change?: number;
+		[key: string]: number | undefined;
+	};
+}
+
+export const fetchFootprint = async (params: FootprintRequest): Promise<FootprintData> => {
+	try {
+		// Import the IMPACT_ENDPOINT and IMPACT_API_KEY constants
+		const { IMPACT_ENDPOINT, IMPACT_API_KEY } = await import('$lib/constants');
+
+		if (!IMPACT_ENDPOINT) {
+			console.warn('IMPACT_ENDPOINT not configured');
+			throw new Error('Impact endpoint not configured');
+		}
+
+		if (!IMPACT_API_KEY) {
+			console.warn('IMPACT_API_KEY not configured');
+			throw new Error('Impact API key not configured');
+		}
+
+		// Convert timestamps to Unix seconds (API expects seconds)
+		const fromTimestamp = Math.floor(params.start_time / 1000);
+		const toTimestamp = Math.floor(params.end_time / 1000);
+
+		// Build the API URL with query parameters
+		const url = new URL(IMPACT_ENDPOINT);
+		url.searchParams.append('from', fromTimestamp.toString());
+		url.searchParams.append('to', toTimestamp.toString());
+
+		console.log('Fetching footprint data from:', url.toString());
+
+		const response = await fetch(url.toString(), {
+			method: 'GET',
+			headers: {
+				'Accept': 'application/json',
+				'Content-Type': 'application/json',
+				'X-Api-Key': IMPACT_API_KEY
+			}
+		});
+
+		if (!response.ok) {
+			throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+		}
+
+		const data: ImpactAPIResponse = await response.json();
+
+		// Map API response to FootprintData interface
+		// Convert Wh to kWh for energy use (divide by 1000)
+		const energyUseKWh = (data.totalEnergyConsumptionForPod / 1000).toFixed(3);
+
+		// CO2 from grams to kg (divide by 1000)
+		const co2OperationalKg = (data.totalOperationalCo2Emissions / 1000).toFixed(3);
+
+		// Calculate embedded CO2 from facility and server impacts (both in kg CO2eq)
+		const facilityClimateChange = data.facilityEmbodiedImpactsAttributable?.climate_change || 0;
+		const serverClimateChange = data.serverEmbodiedImpactsAttributable?.climate_change || 0;
+		const co2EmbeddedKg = (facilityClimateChange + serverClimateChange).toFixed(3);
+
+		// TODO: Map waterUse and resourceUse from the embodied impacts
+		// These would need to be extracted from the specific impact categories
+		// For now, returning placeholder values
+
+		return {
+			energyUse: energyUseKWh,
+			waterUse: '0.000', // TODO: Map from appropriate impact category
+			resourceUse: '0.000', // TODO: Map from appropriate impact category
+			co2Operational: co2OperationalKg,
+			co2Embedded: co2EmbeddedKg
+		};
+	} catch (error) {
+		console.error('Failed to fetch footprint data:', error);
+		throw error;
+	}
 };
