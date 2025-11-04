@@ -1092,11 +1092,61 @@ export const archiveAllChats = async (token: string) => {
 };
 
 export interface FootprintData {
+	// Legacy fields for UI compatibility (formatted as strings)
 	energyUse: string;
 	waterUse: string;
 	resourceUse: string;
 	co2Operational: string;
 	co2Embedded: string;
+
+	// Raw API response fields (complete data)
+	incomplete?: boolean;
+	averageCpuUtilization?: number;
+	averageServerPowerForPod?: number;
+	totalEnergyConsumptionForPod?: number; // in Wh
+	gridRenewablePercentageAverage?: number;
+	totalRenewableEnergyConsumption?: number; // in Wh
+	totalNonRenewableEnergyConsumption?: number; // in Wh
+	totalOperationalCo2Emissions?: number; // in grams
+	facilityEmbodiedImpactsAttributable?: {
+		climate_change?: number;
+		ozone_depletion?: number;
+		human_toxicity?: number;
+		photochemical_oxidant_formation?: number;
+		particulate_matter_formation?: number;
+		ionizing_radiation?: number;
+		terrestrial_acidification?: number;
+		freshwater_eutrophication?: number;
+		marine_eutrophication?: number;
+		terrestrial_ecotoxicity?: number;
+		freshwater_ecotoxicity?: number;
+		marine_ecotoxicity?: number;
+		agricultural_land_occupation?: number;
+		urban_land_occupation?: number;
+		natural_land_transformation?: number;
+		water_depletion?: number;
+		metal_depletion?: number;
+		fossil_depletion?: number;
+	};
+	serverEmbodiedImpactsAttributable?: {
+		climate_change?: number;
+		primary_energy_use?: number;
+		ozone_depletion?: number;
+		human_toxicity?: number;
+		photochemical_oxidant_formation?: number;
+		particulate_matter_formation?: number;
+		ionizing_radiation?: number;
+		terrestrial_acidification?: number;
+		freshwater_eutrophication?: number;
+		marine_eutrophication?: number;
+		terrestrial_ecotoxicity?: number;
+		freshwater_ecotoxicity?: number;
+		marine_ecotoxicity?: number;
+		agricultural_land_occupation?: number;
+		urban_land_occupation?: number;
+		natural_land_transformation?: number;
+		abiotic_depletion_potential?: number;
+	};
 }
 
 export interface FootprintRequest {
@@ -1178,26 +1228,41 @@ export const fetchFootprint = async (
 		// Helper function to map API response to FootprintData
 		const mapResponseToFootprintData = (data: ImpactAPIResponse): FootprintData => {
 			// Convert Wh to kWh for energy use (divide by 1000)
-			const energyUseKWh = (data.totalEnergyConsumptionForPod / 1000).toFixed(3);
+			const energyUseKWh = (data.totalEnergyConsumptionForPod / 1000).toFixed(6);
 
 			// CO2 from grams to kg (divide by 1000)
-			const co2OperationalKg = (data.totalOperationalCo2Emissions / 1000).toFixed(3);
+			const co2OperationalKg = (data.totalOperationalCo2Emissions / 1000).toFixed(6);
 
 			// Calculate embedded CO2 from facility and server impacts (both in kg CO2eq)
 			const facilityClimateChange = data.facilityEmbodiedImpactsAttributable?.climate_change || 0;
 			const serverClimateChange = data.serverEmbodiedImpactsAttributable?.climate_change || 0;
-			const co2EmbeddedKg = (facilityClimateChange + serverClimateChange).toFixed(3);
+			const co2EmbeddedKg = (facilityClimateChange + serverClimateChange).toFixed(6);
 
-			// TODO: Map waterUse and resourceUse from the embodied impacts
-			// These would need to be extracted from the specific impact categories
-			// For now, returning placeholder values
+			// Map water depletion from facility embodied impacts (in m³)
+			const waterUse = (data.facilityEmbodiedImpactsAttributable?.water_depletion || 0).toFixed(6);
+
+			// Map abiotic depletion (fossil + metal) from server embodied impacts (in kg SB-eq)
+			const resourceUse = (data.serverEmbodiedImpactsAttributable?.abiotic_depletion_potential || 0).toFixed(6);
 
 			return {
+				// Legacy formatted fields for UI
 				energyUse: energyUseKWh,
-				waterUse: '0.000', // TODO: Map from appropriate impact category
-				resourceUse: '0.000', // TODO: Map from appropriate impact category
+				waterUse: waterUse,
+				resourceUse: resourceUse,
 				co2Operational: co2OperationalKg,
-				co2Embedded: co2EmbeddedKg
+				co2Embedded: co2EmbeddedKg,
+
+				// Raw API response fields (complete data for future use)
+				incomplete: data.incomplete,
+				averageCpuUtilization: data.averageCpuUtilization,
+				averageServerPowerForPod: data.averageServerPowerForPod,
+				totalEnergyConsumptionForPod: data.totalEnergyConsumptionForPod,
+				gridRenewablePercentageAverage: data.gridRenewablePercentageAverage,
+				totalRenewableEnergyConsumption: data.totalRenewableEnergyConsumption,
+				totalNonRenewableEnergyConsumption: data.totalNonRenewableEnergyConsumption,
+				totalOperationalCo2Emissions: data.totalOperationalCo2Emissions,
+				facilityEmbodiedImpactsAttributable: data.facilityEmbodiedImpactsAttributable,
+				serverEmbodiedImpactsAttributable: data.serverEmbodiedImpactsAttributable
 			};
 		};
 
