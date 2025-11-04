@@ -1109,6 +1109,7 @@ export interface FootprintRequest {
 }
 
 interface ImpactAPIResponse {
+	incomplete: boolean;
 	averageCpuUtilization: number;
 	averageServerPowerForPod: number;
 	totalEnergyConsumptionForPod: number;
@@ -1126,7 +1127,13 @@ interface ImpactAPIResponse {
 	};
 }
 
-export const fetchFootprint = async (params: FootprintRequest): Promise<FootprintData> => {
+export const fetchFootprint = async (
+	params: FootprintRequest,
+	onPolling?: (isPolling: boolean) => void
+): Promise<FootprintData> => {
+	const MAX_POLL_ATTEMPTS = 20; // Maximum 10 minutes of polling (20 * 30 seconds)
+	const POLL_INTERVAL_MS = 30000; // 30 seconds
+
 	try {
 		// Import the IMPACT_ENDPOINT and IMPACT_API_KEY constants
 		const { IMPACT_ENDPOINT, IMPACT_API_KEY } = await import('$lib/constants');
@@ -1150,46 +1157,87 @@ export const fetchFootprint = async (params: FootprintRequest): Promise<Footprin
 		url.searchParams.append('from', fromTimestamp.toString());
 		url.searchParams.append('to', toTimestamp.toString());
 
-		console.log('Fetching footprint data from:', url.toString());
+		// Helper function to fetch data from API
+		const fetchData = async (): Promise<ImpactAPIResponse> => {
+			const response = await fetch(url.toString(), {
+				method: 'GET',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+					'X-Api-Key': IMPACT_API_KEY
+				}
+			});
 
-		const response = await fetch(url.toString(), {
-			method: 'GET',
-			headers: {
-				'Accept': 'application/json',
-				'Content-Type': 'application/json',
-				'X-Api-Key': IMPACT_API_KEY
+			if (!response.ok) {
+				throw new Error(`API request failed: ${response.status} ${response.statusText}`);
 			}
-		});
 
-		if (!response.ok) {
-			throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+			return await response.json();
+		};
+
+		// Helper function to map API response to FootprintData
+		const mapResponseToFootprintData = (data: ImpactAPIResponse): FootprintData => {
+			// Convert Wh to kWh for energy use (divide by 1000)
+			const energyUseKWh = (data.totalEnergyConsumptionForPod / 1000).toFixed(3);
+
+			// CO2 from grams to kg (divide by 1000)
+			const co2OperationalKg = (data.totalOperationalCo2Emissions / 1000).toFixed(3);
+
+			// Calculate embedded CO2 from facility and server impacts (both in kg CO2eq)
+			const facilityClimateChange = data.facilityEmbodiedImpactsAttributable?.climate_change || 0;
+			const serverClimateChange = data.serverEmbodiedImpactsAttributable?.climate_change || 0;
+			const co2EmbeddedKg = (facilityClimateChange + serverClimateChange).toFixed(3);
+
+			// TODO: Map waterUse and resourceUse from the embodied impacts
+			// These would need to be extracted from the specific impact categories
+			// For now, returning placeholder values
+
+			return {
+				energyUse: energyUseKWh,
+				waterUse: '0.000', // TODO: Map from appropriate impact category
+				resourceUse: '0.000', // TODO: Map from appropriate impact category
+				co2Operational: co2OperationalKg,
+				co2Embedded: co2EmbeddedKg
+			};
+		};
+
+		// Initial fetch
+		console.log('Fetching footprint data from:', url.toString());
+		let data = await fetchData();
+
+		// Poll if data is incomplete
+		let pollAttempts = 0;
+		while (data.incomplete && pollAttempts < MAX_POLL_ATTEMPTS) {
+			pollAttempts++;
+			console.log(
+				`Footprint data incomplete, polling again in ${POLL_INTERVAL_MS / 1000}s (attempt ${pollAttempts}/${MAX_POLL_ATTEMPTS})`
+			);
+
+			// Notify caller that we're polling
+			if (onPolling) {
+				onPolling(true);
+			}
+
+			// Wait 30 seconds before polling again
+			await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+			// Fetch again
+			data = await fetchData();
 		}
 
-		const data: ImpactAPIResponse = await response.json();
+		// Notify caller that polling is done
+		if (onPolling) {
+			onPolling(false);
+		}
 
-		// Map API response to FootprintData interface
-		// Convert Wh to kWh for energy use (divide by 1000)
-		const energyUseKWh = (data.totalEnergyConsumptionForPod / 1000).toFixed(3);
+		if (data.incomplete) {
+			throw new Error(
+				`Footprint data still incomplete after ${MAX_POLL_ATTEMPTS} polling attempts`
+			);
+		}
 
-		// CO2 from grams to kg (divide by 1000)
-		const co2OperationalKg = (data.totalOperationalCo2Emissions / 1000).toFixed(3);
-
-		// Calculate embedded CO2 from facility and server impacts (both in kg CO2eq)
-		const facilityClimateChange = data.facilityEmbodiedImpactsAttributable?.climate_change || 0;
-		const serverClimateChange = data.serverEmbodiedImpactsAttributable?.climate_change || 0;
-		const co2EmbeddedKg = (facilityClimateChange + serverClimateChange).toFixed(3);
-
-		// TODO: Map waterUse and resourceUse from the embodied impacts
-		// These would need to be extracted from the specific impact categories
-		// For now, returning placeholder values
-
-		return {
-			energyUse: energyUseKWh,
-			waterUse: '0.000', // TODO: Map from appropriate impact category
-			resourceUse: '0.000', // TODO: Map from appropriate impact category
-			co2Operational: co2OperationalKg,
-			co2Embedded: co2EmbeddedKg
-		};
+		console.log('Footprint data complete');
+		return mapResponseToFootprintData(data);
 	} catch (error) {
 		console.error('Failed to fetch footprint data:', error);
 		throw error;

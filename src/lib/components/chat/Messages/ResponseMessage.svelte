@@ -175,6 +175,7 @@
 
 	let footprintData: FootprintData | null = null;
 	let isFetchingFootprint = false;
+	let isPollingFootprint = false;
 	let footprintRetryCount = 0;
 	const MAX_FOOTPRINT_RETRIES = 3;
 
@@ -193,14 +194,19 @@
 			// Gather usage info if present
 			const usage = message.usage || message.info?.usage;
 
-			const data = await fetchFootprint({
-				start_time: startTime,
-				end_time: Date.now(),
-				host_id: 'mock-host-1', // Mock host ID for now
-				model_id: message.model || 'unknown',
-				user_id: $user?.id || 'anonymous',
-				...(usage ? { usage } : {})
-			});
+			const data = await fetchFootprint(
+				{
+					start_time: startTime,
+					end_time: Date.now(),
+					host_id: 'mock-host-1', // Mock host ID for now
+					model_id: message.model || 'unknown',
+					user_id: $user?.id || 'anonymous',
+					...(usage ? { usage } : {})
+				},
+				(polling) => {
+					isPollingFootprint = polling;
+				}
+			);
 
 			// Update both the local state and the message
 			footprintData = data;
@@ -212,13 +218,17 @@
 			// Reset retry count on success
 			footprintRetryCount = 0;
 		} catch (error) {
-			console.error(`Failed to fetch footprint data (attempt ${footprintRetryCount}/${MAX_FOOTPRINT_RETRIES}):`, error);
+			console.error(
+				`Failed to fetch footprint data (attempt ${footprintRetryCount}/${MAX_FOOTPRINT_RETRIES}):`,
+				error
+			);
 
 			if (footprintRetryCount >= MAX_FOOTPRINT_RETRIES) {
 				console.warn(`Max retries (${MAX_FOOTPRINT_RETRIES}) reached for footprint data. Giving up.`);
 			}
 		} finally {
 			isFetchingFootprint = false;
+			isPollingFootprint = false;
 		}
 	};
 
@@ -1521,7 +1531,7 @@
 										data={message?.footprint}
 										header="Environmental Footprint"
 										subheader="Usage for this query:"
-										loading={isFetchingFootprint}
+										loading={isFetchingFootprint || isPollingFootprint}
 										iconClass="size-4"
 										iconCircleColor="transparent"
 									/>
