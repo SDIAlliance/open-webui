@@ -1092,12 +1092,12 @@ export const archiveAllChats = async (token: string) => {
 };
 
 export interface FootprintData {
-	// Legacy fields for UI compatibility (formatted as strings)
-	energyUse: string;
-	waterUse: string;
-	resourceUse: string;
-	co2Operational: string;
-	co2Embedded: string;
+	// Display fields (formatted as strings in original API units)
+	energyUse: string; // in Wh
+	waterUse: string; // in m³
+	resourceUse: string; // in kg SB-eq
+	co2Operational: string; // in grams CO2-eq
+	co2Embedded: string; // in grams CO2-eq
 
 	// Raw API response fields (complete data)
 	incomplete?: boolean;
@@ -1227,30 +1227,30 @@ export const fetchFootprint = async (
 
 		// Helper function to map API response to FootprintData
 		const mapResponseToFootprintData = (data: ImpactAPIResponse): FootprintData => {
-			// Convert Wh to kWh for energy use (divide by 1000)
-			const energyUseKWh = (data.totalEnergyConsumptionForPod / 1000).toFixed(6);
+			// Keep energy in Wh (original unit from API)
+			const energyUseWh = data.totalEnergyConsumptionForPod.toFixed(4);
 
-			// CO2 from grams to kg (divide by 1000)
-			const co2OperationalKg = (data.totalOperationalCo2Emissions / 1000).toFixed(6);
+			// Keep CO2 in grams (original unit from API)
+			const co2OperationalGrams = data.totalOperationalCo2Emissions.toFixed(4);
 
-			// Calculate embedded CO2 from facility and server impacts (both in kg CO2eq)
+			// Calculate embedded CO2 from facility and server impacts (in grams CO2eq)
 			const facilityClimateChange = data.facilityEmbodiedImpactsAttributable?.climate_change || 0;
 			const serverClimateChange = data.serverEmbodiedImpactsAttributable?.climate_change || 0;
-			const co2EmbeddedKg = (facilityClimateChange + serverClimateChange).toFixed(6);
+			const co2EmbeddedGrams = (facilityClimateChange + serverClimateChange).toFixed(4);
 
 			// Map water depletion from facility embodied impacts (in m³)
 			const waterUse = (data.facilityEmbodiedImpactsAttributable?.water_depletion || 0).toFixed(6);
 
-			// Map abiotic depletion (fossil + metal) from server embodied impacts (in kg SB-eq)
+			// Map abiotic depletion from server embodied impacts (in kg SB-eq)
 			const resourceUse = (data.serverEmbodiedImpactsAttributable?.abiotic_depletion_potential || 0).toFixed(6);
 
 			return {
-				// Legacy formatted fields for UI
-				energyUse: energyUseKWh,
-				waterUse: waterUse,
-				resourceUse: resourceUse,
-				co2Operational: co2OperationalKg,
-				co2Embedded: co2EmbeddedKg,
+				// Formatted fields for UI display (in original API units)
+				energyUse: energyUseWh, // Wh
+				waterUse: waterUse, // m³
+				resourceUse: resourceUse, // kg SB-eq
+				co2Operational: co2OperationalGrams, // g CO2-eq
+				co2Embedded: co2EmbeddedGrams, // g CO2-eq
 
 				// Raw API response fields (complete data for future use)
 				incomplete: data.incomplete,
